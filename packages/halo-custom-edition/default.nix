@@ -240,6 +240,6 @@ overlayfsLib.composeWineLayers {
     export LOCALE_ARCHIVE='${runtimeLocaleEnv.LOCALE_ARCHIVE}'
     export LC_ALL='${runtimeLocaleEnv.LC_ALL}'
     export LANG='${runtimeLocaleEnv.LANG}'
-    ${entrypoint}
+    exec ${entrypoint} "$@"
   '';
 }

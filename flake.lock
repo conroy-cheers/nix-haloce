@@ -148,11 +148,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1772546030,
-        "narHash": "sha256-qzuw/hzf4VRtU2qNEiLUn6CIDCuQBBXuCF31nbE2xpQ=",
+        "lastModified": 1773820747,
+        "narHash": "sha256-bNLKDxsF8bna65rFx38BYyazXSbNzUpWChAkhrzb7LI=",
         "owner": "conroy-cheers",
         "repo": "nix-overlayfs",
-        "rev": "f395bf9b78406979421734332091feefedf1d009",
+        "rev": "7951178112c244c1e0d58e86174a3868497d0c2c",
         "type": "github"
       },
       "original": {
