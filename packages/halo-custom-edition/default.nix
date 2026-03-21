@@ -1,29 +1,37 @@
 {
   lib,
-  stdenvNoCC,
-  fetchurl,
+  stdenv,
   glibcLocales,
-  jq,
-  p7zip,
-  _7zz,
 
   overlayfsLib,
-  wineGeWin32Modules,
-  wineTkgWow64Modules,
+  modules,
+  basePackage,
+  dxvkPackage ? null,
 }:
 let
   haloVersion = "1.0.10";
-  installerVersion = "1.0.0";
-  refinedVersion = "5.01";
-  chimeraVersion = "1.0.0r1096.55407763";
-
-  currentVersion = "01.00.00.0609";
-  targetVersion = "01.00.10.0621";
-  haloRegistryKey = "Software\\Microsoft\\Microsoft Games\\Halo CE";
   haloInstallSuffix = "/Microsoft Games/Halo Custom Edition";
-  haloInstallDirWin32 = "${wineGeWin32Modules.wine.programFiles32Path}${haloInstallSuffix}";
-  haloInstallDirWow64 = "${wineTkgWow64Modules.wine.programFilesPath}${haloInstallSuffix}";
-  haloUpdateLocation = "C:\\Program Files (x86)\\Microsoft Games\\Halo Custom Edition";
+  runtime = modules.runtime;
+  isAarch64 = stdenv.hostPlatform.isAarch64;
+  haloInstallDir = "${runtime.programFiles32Path}${haloInstallSuffix}";
+  sysarm32SeedSource = "${runtime.baseEnvLayer}/basePackage/drive_c/windows/system32";
+  dxvkLayer =
+    if dxvkPackage != null then
+      modules.callPackage ./dxvk-layer.nix { dxvk = dxvkPackage; }
+    else
+      null;
+  runtimeInitLayer =
+    if isAarch64 then
+      modules.callPackage ./init-layer.nix {
+        inherit basePackage dxvkLayer;
+      }
+    else
+      null;
+  graphicsBootstrap =
+    if overlayfsLib ? mkGraphicsBootstrap then
+      overlayfsLib.mkGraphicsBootstrap { inherit runtime; }
+    else
+      { extraPreLaunchCommands = ""; };
 
   runtimeLocaleEnv = {
     LOCALE_ARCHIVE = "${glibcLocales}/lib/locale/locale-archive";
@@ -31,215 +39,179 @@ let
     LANG = "C";
   };
 
-  installOverlayDeps = with wineGeWin32Modules; [
-    msvcp60
-    msxml4
-  ];
+  runtimeBootstrapCommands = ''
+    halo_rewrite_runtime_registry() {
+      if [ -f "$tempdir/overlay/user.reg" ]; then
+        sed -i "s#C:\\\\\\\\users\\\\\\\\nixbld#C:\\\\\\\\users\\\\\\\\$USER#g" "$tempdir/overlay/user.reg"
+        sed -i "s#\\\\users\\\\nixbld#\\\\users\\\\$USER#g" "$tempdir/overlay/user.reg"
+        sed -i "s#\"HOMEPATH\"=\"\\\\users\\\\nixbld\"#\"HOMEPATH\"=\"\\\\users\\\\$USER\"#g" "$tempdir/overlay/user.reg"
+        sed -i "s#\"USERNAME\"=\"nixbld\"#\"USERNAME\"=\"$USER\"#g" "$tempdir/overlay/user.reg"
+        sed -i '/^"ExitFlag"=/d' "$tempdir/overlay/user.reg"
+        if ! grep -q '^\[Software\\\\Wine\\\\Direct3D\]' "$tempdir/overlay/user.reg"; then
+          cat >>"$tempdir/overlay/user.reg" <<'EOF'
 
-  runtimeBaseOverlayDeps = with wineTkgWow64Modules; [
-    msvcp60
-    msxml4
-  ];
-
-  runtimeOverlayDeps = with wineTkgWow64Modules; [
-    wine-dxvk
-  ];
-
-  renderScript = template: replacements:
-    lib.replaceStrings
-      (map (entry: entry.placeholder) replacements)
-      (map (entry: entry.value) replacements)
-      (builtins.readFile template);
-
-  patchSrc = fetchurl {
-    url = "https://web.archive.org/web/20141022155617/http://halo.bungie.net/images/games/halopc/patch/110/haloce-patch-1.0.10.exe";
-    hash = "sha256-M4GPP1a33dyMYdZUr2VnycW5IgynXWrCOlJhEDgldQg=";
-  };
-  patchSrcWin = "Z:${lib.replaceStrings [ "/" ] [ "\\\\" ] (toString patchSrc)}";
-  installerSrc = fetchurl {
-    url = "http://vaporeon.io/hosted/halo/original_files/halocesetup_en_1.00.exe";
-    hash = "sha256-ARsDthY0Vh18G2CQ5yKf4KLfQN4sKhS0WsjwRV1dmQ8=";
-  };
-
-  mkExtracted7zPayload =
-    {
-      pname,
-      version,
-      src,
-    }:
-    stdenvNoCC.mkDerivation {
-      inherit pname version src;
-      nativeBuildInputs = [ _7zz ];
-      unpackPhase = "true";
-      buildPhase = ''
-        mkdir payload
-        7zz x -y -bd -bso0 -bsp0 -bse1 "$src" -opayload
-      '';
-      installPhase = ''
-        mkdir -p "$out"
-        cp -r ./payload/* "$out"/
-      '';
-    };
-
-  mkExtractedP7zipPayload =
-    {
-      pname,
-      version,
-      src,
-    }:
-    stdenvNoCC.mkDerivation {
-      inherit pname version src;
-      nativeBuildInputs = [ p7zip ];
-      unpackPhase = ''
-        runHook preUnpack
-
-        7z x $src -o$out
-
-        runHook postUnpack
-      '';
-    };
-
-  halocePayload = mkExtracted7zPayload {
-    pname = "halo-custom-edition-payload";
-    version = installerVersion;
-    src = installerSrc;
-  };
-
-  haloPatchPayload = mkExtracted7zPayload {
-    pname = "halo-custom-edition-patch-payload";
-    version = haloVersion;
-    src = patchSrc;
-  };
-
-  refinedMaps = mkExtractedP7zipPayload {
-    pname = "halo-refined-custom-edition";
-    version = refinedVersion;
-    src = fetchurl {
-      url = "http://vaporeon.io/hosted/halo/refined/halo_refined_custom_edition_en_v5.01.7z";
-      hash = "sha256-0KrkVuokCLkrK4nCEihHCw+tmJbGlp+kHO+AUuDd1bo=";
-    };
-  };
-
-  chimera = mkExtractedP7zipPayload {
-    pname = "chimera";
-    version = chimeraVersion;
-    src = fetchurl {
-      url = "https://github.com/SnowyMouse/chimera/releases/download/1.0.0r1224/chimera-1.0.0r1224.7z";
-      hash = "sha256:b75624a0397c21dd4670d9be4d94742b0dd07f56615f3f45da020ddff0c9bf79";
-    };
-  };
-
-  haloceInstallScript =
-    { wineExe }:
-    renderScript ./install.sh [
-      {
-        placeholder = "@WINE_EXE@";
-        value = wineExe;
-      }
-      {
-        placeholder = "@HALO_INSTALL_DIR_WIN32@";
-        value = haloInstallDirWin32;
-      }
-      {
-        placeholder = "@HALOCE_PAYLOAD@";
-        value = toString halocePayload;
-      }
-      {
-        placeholder = "@PATCH_SRC@";
-        value = toString patchSrc;
-      }
-      {
-        placeholder = "@HALO_PATCH_PAYLOAD@";
-        value = toString haloPatchPayload;
-      }
-      {
-        placeholder = "@HALO_REGISTRY_KEY@";
-        value = haloRegistryKey;
-      }
-      {
-        placeholder = "@HALO_UPDATE_LOCATION@";
-        value = haloUpdateLocation;
-      }
-      {
-        placeholder = "@CURRENT_VERSION@";
-        value = currentVersion;
-      }
-      {
-        placeholder = "@TARGET_VERSION@";
-        value = targetVersion;
-      }
-      {
-        placeholder = "@PATCH_SRC_WIN@";
-        value = patchSrcWin;
-      }
-      {
-        placeholder = "@REFINED_MAPS@";
-        value = toString refinedMaps;
-      }
-      {
-        placeholder = "@CHIMERA@";
-        value = toString chimera;
-      }
-    ];
-
-  mergeRegistryJsonScript = renderScript ./merge-registry.sh [
-    {
-      placeholder = "@WOW64_BASE_ENV@";
-      value = toString wineTkgWow64Modules.wine.wine-base-env;
+[Software\\Wine\\Direct3D]
+#time=1dcb93fffffffff
+EOF
+        fi
+        if ! grep -q '^"VideoMemorySize"=' "$tempdir/overlay/user.reg"; then
+          sed -i '/^\[Software\\\\Wine\\\\Direct3D\]/a "VideoMemorySize"="2048"' "$tempdir/overlay/user.reg"
+        fi
+      fi
+      if [ -f "$tempdir/overlay/system.reg" ]; then
+        sed -i "s#C:\\\\\\\\users\\\\\\\\nixbld#C:\\\\\\\\users\\\\\\\\$USER#g" "$tempdir/overlay/system.reg"
+      fi
     }
-  ];
 
-  haloce = overlayfsLib.mkWinePackage {
-    inherit (wineGeWin32Modules) wine;
-    pname = "halo-custom-edition";
-    version = haloVersion;
-    src = installerSrc;
-    unshareInstall = haloceInstallScript;
-    postInstall = "";
-    overlayDependencies = installOverlayDeps;
-    packageName = "halo-custom-edition";
-    executableName = "haloce";
-    launchVncServer = false;
-  };
+    if [ ! -f "$appdir/user.reg" ]; then
+      ${lib.optionalString (runtimeInitLayer != null) ''
+        cp -dR --no-preserve=ownership ${lib.escapeShellArg "${toString runtimeInitLayer}/basePackage"}/. "$appdir"/
+      ''}
+      touch "$appdir/.update-timestamp"
+    fi
 
-  haloceWow64Base = stdenvNoCC.mkDerivation {
-    pname = "halo-custom-edition-wow64-base";
-    version = haloce.version;
-    src = haloce.basePackage;
-    nativeBuildInputs = [
-      jq
-      overlayfsLib.scripts.json2reg
-    ];
-    unpackPhase = "true";
-    buildPhase = ''
-      cp -r "$src" ./base
-      chmod -R u+w ./base
-      ${mergeRegistryJsonScript}
-    '';
-    installPhase = ''
-      mkdir -p "$out"
-      cp -r ./base/* "$out"/
-    '';
-  };
+    if [ "${lib.boolToString isAarch64}" = true ]; then
+      export HALO_SYSARM32_APPDIR="$appdir/drive_c/windows/sysarm32"
+      if [ ! -L "$HALO_SYSARM32_APPDIR/rundll32.exe" ]; then
+        mkdir -p "$HALO_SYSARM32_APPDIR"
+        for source in ${lib.escapeShellArg sysarm32SeedSource}/*; do
+          target="$HALO_SYSARM32_APPDIR/$(basename "$source")"
+          if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+            ln -s "$source" "$target"
+          fi
+        done
+      fi
+    fi
 
-  haloceWow64RuntimeLayer = haloce // {
-    basePackage = haloceWow64Base;
-    overlayDependencies = runtimeBaseOverlayDeps;
+    export HALO_USER_DIR="$tempdir/overlay/drive_c/users/$USER"
+    export HALO_BUILD_USER_DIR="$tempdir/overlay/drive_c/users/nixbld"
+    export HALO_ROOT_USER_DIR="$tempdir/overlay/drive_c/users/root"
+    export HALO_SAVE_DIR="$HALO_USER_DIR/Documents/My Games/Halo CE"
+    export HALO_PROFILE_DIR="$HALO_SAVE_DIR/saved/player_profiles/default_profile"
+    export HALO_PLAYLIST_DIR="$HALO_SAVE_DIR/saved/playlists/default_playlist"
+    export HALO_HOSTNAME_UPPER="$(hostname -s | tr '[:lower:]' '[:upper:]')"
+    export USERNAME="$USER"
+    export USERPROFILE="C:\\users\\$USER"
+    export HOMEDRIVE="C:"
+    export HOMEPATH="\\users\\$USER"
+    export APPDATA="C:\\users\\$USER\\AppData\\Roaming"
+    export LOCALAPPDATA="C:\\users\\$USER\\AppData\\Local"
+    export USERDOMAIN="$HALO_HOSTNAME_UPPER"
+    export LOGONSERVER="\\\\$HALO_HOSTNAME_UPPER"
+    mkdir -p \
+      "$HALO_USER_DIR/Desktop" \
+      "$HALO_SAVE_DIR" \
+      "$HALO_PROFILE_DIR" \
+      "$HALO_PLAYLIST_DIR" \
+      "$HALO_USER_DIR/Favorites" \
+      "$HALO_USER_DIR/Music" \
+      "$HALO_USER_DIR/Pictures" \
+      "$HALO_USER_DIR/Videos" \
+      "$HALO_USER_DIR/Downloads" \
+      "$HALO_USER_DIR/Saved Games" \
+      "$HALO_USER_DIR/Contacts" \
+      "$HALO_USER_DIR/Links" \
+      "$HALO_USER_DIR/Searches" \
+      "$HALO_USER_DIR/AppData/Local/Microsoft/Windows/History" \
+      "$HALO_USER_DIR/AppData/Local/Microsoft/Windows/INetCache" \
+      "$HALO_USER_DIR/AppData/Local/Microsoft/Windows/INetCookies" \
+      "$HALO_USER_DIR/AppData/LocalLow" \
+      "$HALO_USER_DIR/AppData/Roaming/Microsoft/Windows/Network Shortcuts" \
+      "$HALO_USER_DIR/AppData/Roaming/Microsoft/Windows/Printer Shortcuts" \
+      "$HALO_USER_DIR/AppData/Roaming/Microsoft/Windows/Recent" \
+      "$HALO_USER_DIR/AppData/Roaming/Microsoft/Windows/SendTo" \
+      "$HALO_USER_DIR/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Administrative Tools" \
+      "$HALO_USER_DIR/AppData/Roaming/Microsoft/Windows/Templates"
+    mkdir -p \
+      "$HALO_BUILD_USER_DIR/AppData/Local/Temp" \
+      "$HALO_ROOT_USER_DIR/Desktop" \
+      "$HALO_ROOT_USER_DIR/Documents" \
+      "$HALO_ROOT_USER_DIR/Favorites" \
+      "$HALO_ROOT_USER_DIR/Music" \
+      "$HALO_ROOT_USER_DIR/Pictures" \
+      "$HALO_ROOT_USER_DIR/Videos" \
+      "$HALO_ROOT_USER_DIR/Downloads" \
+      "$HALO_ROOT_USER_DIR/Saved Games" \
+      "$HALO_ROOT_USER_DIR/Contacts" \
+      "$HALO_ROOT_USER_DIR/Links" \
+      "$HALO_ROOT_USER_DIR/Searches" \
+      "$HALO_ROOT_USER_DIR/AppData/Local/Microsoft/Windows/History" \
+      "$HALO_ROOT_USER_DIR/AppData/Local/Microsoft/Windows/INetCache" \
+      "$HALO_ROOT_USER_DIR/AppData/Local/Microsoft/Windows/INetCookies" \
+      "$HALO_ROOT_USER_DIR/AppData/Local/Temp" \
+      "$HALO_ROOT_USER_DIR/AppData/LocalLow" \
+      "$HALO_ROOT_USER_DIR/AppData/Roaming/Microsoft/Windows/Network Shortcuts" \
+      "$HALO_ROOT_USER_DIR/AppData/Roaming/Microsoft/Windows/Printer Shortcuts" \
+      "$HALO_ROOT_USER_DIR/AppData/Roaming/Microsoft/Windows/Recent" \
+      "$HALO_ROOT_USER_DIR/AppData/Roaming/Microsoft/Windows/SendTo" \
+      "$HALO_ROOT_USER_DIR/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Administrative Tools" \
+      "$HALO_ROOT_USER_DIR/AppData/Roaming/Microsoft/Windows/Templates"
+    rm -rf "$HALO_USER_DIR/My Documents"
+    ln -s Documents "$HALO_USER_DIR/My Documents"
+    if [ ! -f "$HALO_SAVE_DIR/savegame.bin" ]; then
+      truncate -s 4718592 "$HALO_SAVE_DIR/savegame.bin"
+    fi
+
+    halo_rewrite_runtime_registry
+
+    if [ ! -f "$appdir/.halo-runtime-ready" ]; then
+      ${runtime.toolsPackage}/bin/wineboot -u
+      ${runtime.toolsPackage}/bin/wineserver --wait
+      halo_rewrite_runtime_registry
+      touch "$appdir/.halo-runtime-ready"
+    fi
+    rm -rf "$HALO_USER_DIR/Documents/My Games/Halo CE/hac"
+    rm -rf "$tempdir/overlay/drive_c/Program Files (x86)/Microsoft Games/Halo Custom Edition/controls"
+  '';
+
+  haloAarch64BootstrapCommands = lib.optionalString isAarch64 ''
+    if [ -f "$tempdir/overlay/user.reg" ] && grep -q '^\[Software\\\\Microsoft\\\\Microsoft Games\\\\Halo CE\]' "$tempdir/overlay/user.reg"; then
+      if ! grep -q '^"FIRSTRUN"=' "$tempdir/overlay/user.reg"; then
+        sed -i '/^\[Software\\\\Microsoft\\\\Microsoft Games\\\\Halo CE\]/a "ATI Radeon 9600 XT (0x4172):147"=hex:6e,30\n"FIRSTRUN"=dword:00000001\n"gamma"=dword:00000001' "$tempdir/overlay/user.reg"
+      fi
+    fi
+  '';
+
+  dxvkBootstrapCommands = lib.optionalString (dxvkLayer != null) ''
+    halo_use_dxvk="${"$"}{HALO_USE_DXVK:-1}"
+    case "$halo_use_dxvk" in
+      1|true|TRUE|yes|YES)
+        export WINEDLLOVERRIDES="d3d8,d3d9,d3d10core,d3d11,dxgi=n"
+        export DXVK_LOG_LEVEL="${"$"}{DXVK_LOG_LEVEL:-none}"
+        export DXVK_STATE_CACHE="${"$"}{DXVK_STATE_CACHE:-0}"
+        ;;
+      0|false|FALSE|no|NO)
+        export WINEDLLOVERRIDES="d3d8,d3d9,d3d10core,d3d11,dxgi=b"
+        unset DXVK_LOG_LEVEL
+        unset DXVK_STATE_CACHE
+        ;;
+      *)
+        echo "warning: unknown HALO_USE_DXVK=$halo_use_dxvk, expected 0|1|false|true|no|yes; defaulting to enabled" >&2
+        export WINEDLLOVERRIDES="d3d8,d3d9,d3d10core,d3d11,dxgi=n"
+        export DXVK_LOG_LEVEL="${"$"}{DXVK_LOG_LEVEL:-none}"
+        export DXVK_STATE_CACHE="${"$"}{DXVK_STATE_CACHE:-0}"
+        ;;
+    esac
+  '';
+
+in
+overlayfsLib.composeWindowsLayers {
+  inherit runtime;
+  baseLayer = {
+    inherit basePackage;
+    overlayDependencies = [ ];
     runtimeEnvVars = runtimeLocaleEnv;
   };
-in
-overlayfsLib.composeWineLayers {
-  inherit (wineTkgWow64Modules) wine;
-  baseLayer = haloceWow64RuntimeLayer;
-  overlayDependencies = runtimeOverlayDeps;
+  overlayDependencies = lib.optionals (dxvkLayer != null) [ dxvkLayer ];
   packageName = "halo-custom-edition";
   executableName = "haloce";
-  executablePath = "${haloInstallDirWow64}/haloce.exe";
-  workingDirectory = haloInstallDirWow64;
-  entrypointWrapper = entrypoint: ''
-    export LOCALE_ARCHIVE='${runtimeLocaleEnv.LOCALE_ARCHIVE}'
-    export LC_ALL='${runtimeLocaleEnv.LC_ALL}'
-    export LANG='${runtimeLocaleEnv.LANG}'
-    exec ${entrypoint} "$@"
-  '';
+  executablePath = "${haloInstallDir}/haloce.exe";
+  workingDirectory = haloInstallDir;
+  runtimeEnvVars = runtimeLocaleEnv;
+  extraPreLaunchCommands =
+    runtimeBootstrapCommands
+    + haloAarch64BootstrapCommands
+    + dxvkBootstrapCommands
+    + graphicsBootstrap.extraPreLaunchCommands;
+  entrypointWrapper = entrypoint: ''exec ${entrypoint} -novideo "$@"'';
 }
