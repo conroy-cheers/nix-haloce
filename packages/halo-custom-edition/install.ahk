@@ -25,7 +25,7 @@ WaitForText(WinTitle, TargetText, Timeout := 0) {
 WinWait, %EulaWinTitle%
 ; Activate and click Accept
 WinActivate, %EulaWinTitle%
-ControlClick, Button1
+ControlClick, Button1, %EulaWinTitle%
 WinWaitClose, %EulaWinTitle%
 
 
@@ -70,5 +70,6 @@ WaitForText(WinTitle, "Halo Custom Edition has been installed successfully!", 60
 
 ; Close the installer window
 WinClose, %WinTitle%
+WinWaitClose, %WinTitle%
 
 ExitApp

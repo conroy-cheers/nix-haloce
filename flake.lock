@@ -148,15 +148,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1773820747,
-        "narHash": "sha256-bNLKDxsF8bna65rFx38BYyazXSbNzUpWChAkhrzb7LI=",
+        "lastModified": 1774391246,
+        "narHash": "sha256-HyrzY0EAVS6LXi76y0nvIq0nIWHICLYmDqc0j3TyZcU=",
         "owner": "conroy-cheers",
         "repo": "nix-overlayfs",
-        "rev": "7951178112c244c1e0d58e86174a3868497d0c2c",
+        "rev": "bed28fa6716c920401c5c5db228517846c33e638",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
+        "ref": "feature/crossplatform-support",
         "repo": "nix-overlayfs",
         "type": "github"
       }
@@ -228,11 +229,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1772433332,
-        "narHash": "sha256-izhTDFKsg6KeVBxJS9EblGeQ8y+O8eCa6RcW874vxEc=",
+        "lastModified": 1781577229,
+        "narHash": "sha256-lrp67w8AulE9Ks53n27I45ADSzbOCn4H+CNW1Ck8B+8=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "cf59864ef8aa2e178cccedbe2c178185b0365705",
+        "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
         "type": "github"
       },
       "original": {
