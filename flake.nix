@@ -20,47 +20,42 @@
   };
 
   outputs =
-    {
+    inputs@{
+      self,
       nixpkgs,
       ...
-    }@inputs:
+    }:
     let
-      transposeAttrs =
-        attrs:
-        nixpkgs.lib.foldlAttrs (
-          acc: outer: inner:
-          nixpkgs.lib.recursiveUpdate acc (nixpkgs.lib.mapAttrs (k: v: { ${outer} = v; }) inner)
-        ) { } attrs;
-
-      generateSystems = (
-        {
-          self,
-          nixpkgs,
-          nix-overlayfs,
-        }@inputs:
-        nixpkgs.lib.genAttrs [ "x86_64-linux" ] (
-          system:
-          let
-            p = {
-              inherit self;
-              pkgs = nixpkgs.legacyPackages.${system};
-              nix-overlayfs = nix-overlayfs.packages.${system};
-            };
-
-            packages = import ./packages {
-              inherit (p) pkgs nix-overlayfs;
-              overlayfsLib = (nix-overlayfs.lib.${system});
-            };
-          in
-          {
-            inherit packages;
-            apps = import ./apps { inherit packages; };
-          }
-        )
-      );
+      systems = [ "x86_64-linux" "aarch64-linux" ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
+      mkPkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
+        };
+      pkgsFor = forAllSystems mkPkgsFor;
+      packageSets = forAllSystems (system: pkgsFor.${system}.nix-haloce);
     in
-    (transposeAttrs (generateSystems inputs))
-    // {
+    {
+      overlays.default = final: _prev: {
+        nix-haloce = import ./pkgs/top-level {
+          pkgs = final;
+          inherit inputs;
+        };
+      };
+
+      legacyPackages = forAllSystems (
+        system:
+        {
+          nix-haloce = nixpkgs.lib.dontRecurseIntoAttrs packageSets.${system};
+        }
+      );
+
+      packages = forAllSystems (system: packageSets.${system}.packages);
+
+      apps = forAllSystems (system: packageSets.${system}.apps);
+
       inherit inputs;
     };
 }
