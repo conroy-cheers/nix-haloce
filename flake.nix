@@ -6,7 +6,7 @@
       url = "github:nixos/nixpkgs?ref=nixos-unstable";
     };
     nix-overlayfs = {
-      url = "github:conroy-cheers/nix-overlayfs/feature/crossplatform-support";
+      url = "github:conroy-cheers/nix-overlayfs";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
