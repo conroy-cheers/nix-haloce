@@ -153,6 +153,10 @@ overlayfsLib.mkWindowsPackage {
     wineExe = "${runtime.toolsPackage}/bin/wine";
     wineserverExe = "${runtime.toolsPackage}/bin/wineserver";
   };
+  extraPathsToRemove = [
+    "./Program Files (x86)/Microsoft Games/Halo Custom Edition/controls/Controls.dll"
+    "./Program Files (x86)/Microsoft Games/Halo Custom Edition/controls/controls.ini"
+  ];
   overlayDependencies = installOverlayDeps;
   launchVncServer = false;
 }

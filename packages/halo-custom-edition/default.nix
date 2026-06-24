@@ -167,7 +167,6 @@ EOF
       touch "$appdir/.halo-runtime-ready"
     fi
     rm -rf "$HALO_USER_DIR/Documents/My Games/Halo CE/hac"
-    rm -rf "$tempdir/overlay/drive_c/Program Files (x86)/Microsoft Games/Halo Custom Edition/controls"
   '';
 
   haloAarch64BootstrapCommands = lib.optionalString isAarch64 ''
