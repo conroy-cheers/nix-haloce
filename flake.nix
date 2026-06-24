@@ -13,8 +13,12 @@
 
   nixConfig = {
     allowInsecure = true;
-    extra-substituters = ["https://nix-gaming.cachix.org"];
+    extra-substituters = [
+      "https://cache.corncheese.org/nix-cache"
+      "https://nix-gaming.cachix.org"
+    ];
     extra-trusted-public-keys = [
+      "nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg="
       "nix-gaming.cachix.org-1:nbjlureqMbRAxR1gJ/f3hxemL9svXaZF/Ees8vCUUs4="
     ];
   };
