@@ -51,6 +51,10 @@
 
     apps = forAllSystems (system: packageSets.${system}.apps);
 
+    hydraJobs = {
+      inherit (self.packages) x86_64-linux;
+    };
+
     inherit inputs;
   };
 }
