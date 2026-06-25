@@ -28,8 +28,9 @@
     nixpkgs,
     ...
   }: let
+    lib = nixpkgs.lib;
     systems = ["x86_64-linux" "aarch64-linux"];
-    forAllSystems = nixpkgs.lib.genAttrs systems;
+    forAllSystems = lib.genAttrs systems;
     mkPkgsFor = system:
       import nixpkgs {
         inherit system;
@@ -37,6 +38,7 @@
       };
     pkgsFor = forAllSystems mkPkgsFor;
     packageSets = forAllSystems (system: pkgsFor.${system}.nix-haloce);
+    x86System = "x86_64-linux";
   in {
     overlays.default = final: _prev: {
       nix-haloce = import ./pkgs/top-level {
@@ -47,16 +49,49 @@
 
     legacyPackages = forAllSystems (
       system: {
-        nix-haloce = nixpkgs.lib.dontRecurseIntoAttrs packageSets.${system};
+        nix-haloce = lib.dontRecurseIntoAttrs packageSets.${system};
       }
     );
 
-    packages = forAllSystems (system: packageSets.${system}.packages);
+    packages = forAllSystems (
+      system:
+        packageSets.${system}.packages
+        // lib.optionalAttrs (system == x86System) {
+          haloce-live-iso = self.nixosConfigurations.haloce-live.config.system.build.isoImage;
+          haloce-usb-image = self.nixosConfigurations.haloce-live.config.system.build.image;
+          haloce-headless-test = import ./nixos/tests/headless.nix {
+            pkgs = pkgsFor.${system};
+            inherit self;
+          };
+        }
+    );
 
     apps = forAllSystems (system: packageSets.${system}.apps);
 
+    checks = forAllSystems (
+      system:
+        lib.optionalAttrs (system == x86System) {
+          haloce-headless = self.packages.${system}.haloce-headless-test;
+        }
+    );
+
+    nixosModules = {
+      haloce-kiosk = ./nixos/modules/haloce-kiosk.nix;
+    };
+
+    nixosConfigurations.haloce-live = lib.nixosSystem {
+      system = x86System;
+      specialArgs = {inherit inputs self;};
+      modules = [
+        {
+          nixpkgs.overlays = [self.overlays.default];
+        }
+        ./nixos/haloce-live.nix
+      ];
+    };
+
     hydraJobs = {
-      inherit (self.packages) x86_64-linux;
+      x86_64-linux = self.packages.x86_64-linux // self.checks.x86_64-linux;
     };
 
     inherit inputs;

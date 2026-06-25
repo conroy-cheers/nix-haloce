@@ -63,3 +63,29 @@ The flake follows the newer `nix-overlayfs` layout:
 - `packages.<system>` exposes only buildable derivations
 - `apps.<system>` exposes only flat runnable apps
 - `legacyPackages.<system>.nix-haloce` exposes the richer package set, including runtime-namespaced variants
+
+## Live USB
+
+This flake also exposes a NixOS live configuration that boots straight into
+Halo Custom Edition:
+
+```sh
+nix build .#haloce-live-iso
+```
+
+The resulting ISO is a hybrid USB image and can be written directly to a USB
+stick:
+
+```sh
+sudo dd if=result/iso/*.iso of=/dev/disk/by-id/<usb-device> bs=4M status=progress oflag=sync
+```
+
+The default boot entry includes `copytoram`, and the live system uses tmpfs for
+the root and home filesystems, so the USB stick can be removed after boot
+finishes. The same image is also available as `.#haloce-usb-image`.
+
+The headless QEMU regression test is exposed as:
+
+```sh
+nix build .#checks.x86_64-linux.haloce-headless
+```
