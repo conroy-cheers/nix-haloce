@@ -55,8 +55,12 @@ overlayfsLib.mkWindowsPackage {
           | dd of="$file" bs=1 seek="$offset" conv=notrunc status=none
       }
 
-      patch_binary_bytes "$halo_exe" $((0x1829ea)) e8c1f3ffff b802000000 || true
-      patch_binary_bytes "$halo_exe" $((0x11ad7f)) 32db b301 || true
+      patch_binary_bytes "$halo_exe" $((0x18241a)) e8c1f3ffff b802000000 \
+        || patch_binary_bytes "$halo_exe" $((0x1829ea)) e8c1f3ffff b802000000 \
+        || true
+      patch_binary_bytes "$halo_exe" $((0x11adbe)) b301 b301 \
+        || patch_binary_bytes "$halo_exe" $((0x11ad7f)) 32db b301 \
+        || true
 
       cat > "$eula_ahk" <<'EOF'
 #Persistent
