@@ -57,12 +57,16 @@ let
       version = "1.10.3";
       hash = "sha256-7/mP7XrZpeV6SY5bPTQE8ehJEdSUC+stJh3cVqgyfWk=";
     };
+    jetsonCompat = mkDxvkBinaryPackage {
+      version = "2.4.1";
+      hash = "sha256-Pdg0aHeDjNyo83CASyhUmXcj/CheDmKk0PbX0w72WVA=";
+    };
     current = mkDxvkBinaryPackage {
       version = "2.7.1";
       hash = "sha256-gLvC5MxJom3LLBZw4Di+vUfZC1gykvyuyVgqcwZAgWg=";
     };
   };
-  dxvkPackage = if isAarch64 then dxvkPackages.legacy else dxvkPackages.current;
+  dxvkPackage = if isAarch64 then dxvkPackages.jetsonCompat else dxvkPackages.current;
 
   nativeInstallLayer =
     if !isAarch64 then

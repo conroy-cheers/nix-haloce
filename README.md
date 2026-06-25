@@ -15,6 +15,10 @@ nix run .#halo-custom-edition --override-input nix-overlayfs ~/src/nix-overlayfs
 ```
 
 On `aarch64-linux`, the wrapper defaults to `NIX_OVERLAYFS_GRAPHICS_STACK=auto`, which leaves GL/EGL/Vulkan discovery to the host environment.
+It also adds `-safemode -use20` by default, which keeps Halo on the Pixel
+Shader 2.0 renderer while avoiding the aarch64/FEX menu hang seen with the
+plain launch path. Set `HALO_AARCH64_COMPAT_ARGS=0` to disable those extra
+arguments for testing.
 
 The only explicit override now is:
 
@@ -33,8 +37,8 @@ Wine's builtin D3D path at runtime:
 HALO_USE_DXVK=0 NIX_OVERLAYFS_GRAPHICS_STACK=system nix run .#halo-custom-edition
 ```
 
-On `aarch64-linux`, this package currently defaults to legacy `dxvk_1`
-(`1.10.3`) instead of DXVK `2.7.1`, since current DXVK requires newer Vulkan
+On `aarch64-linux`, this package defaults to the Jetson-compatible DXVK
+`2.4.1` build instead of DXVK `2.7.1`, since current DXVK requires newer Vulkan
 features such as `VK_KHR_maintenance5` that are missing on some Jetson-class
 drivers.
 
@@ -55,7 +59,8 @@ pkgs.nix-haloce.packages.halo-custom-edition.override {
 }
 ```
 
-Use `dxvkPackages.current` for DXVK `2.7.1` and `dxvkPackages.legacy` for DXVK
+Use `dxvkPackages.jetsonCompat` for DXVK `2.4.1`,
+`dxvkPackages.current` for DXVK `2.7.1`, and `dxvkPackages.legacy` for DXVK
 `1.10.3`.
 
 The flake follows the newer `nix-overlayfs` layout:

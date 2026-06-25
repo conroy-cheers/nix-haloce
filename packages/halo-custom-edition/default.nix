@@ -219,6 +219,9 @@ overlayfsLib.composeWindowsLayers {
     + dxvkBootstrapCommands
     + graphicsBootstrap.extraPreLaunchCommands;
   entrypointWrapper = entrypoint: ''
+    halo_extra_args=()
+    halo_has_aarch64_safemode=false
+    halo_has_aarch64_shader=false
     halo_vidmode_width=""
     halo_vidmode_height=""
     halo_vidmode_refresh=""
@@ -244,10 +247,45 @@ overlayfsLib.composeWindowsLayers {
           esac
         fi
         halo_next_is_vidmode=false
-      elif [ "$halo_arg" = "-vidmode" ]; then
-        halo_next_is_vidmode=true
+      else
+        case "$halo_arg" in
+          -safemode)
+            halo_has_aarch64_safemode=true
+            ;;
+          -useff|-use11|-use14|-use20)
+            halo_has_aarch64_shader=true
+            ;;
+          -vidmode)
+            halo_next_is_vidmode=true
+            ;;
+        esac
       fi
     done
+
+    ${lib.optionalString isAarch64 ''
+      halo_aarch64_compat_args="${"$"}{HALO_AARCH64_COMPAT_ARGS:-1}"
+      case "$halo_aarch64_compat_args" in
+        1|true|TRUE|yes|YES)
+          if [ "$halo_has_aarch64_safemode" = false ]; then
+            halo_extra_args+=(-safemode)
+          fi
+          if [ "$halo_has_aarch64_shader" = false ]; then
+            halo_extra_args+=(-use20)
+          fi
+          ;;
+        0|false|FALSE|no|NO)
+          ;;
+        *)
+          echo "warning: unknown HALO_AARCH64_COMPAT_ARGS=$halo_aarch64_compat_args, expected 0|1|false|true|no|yes; defaulting to enabled" >&2
+          if [ "$halo_has_aarch64_safemode" = false ]; then
+            halo_extra_args+=(-safemode)
+          fi
+          if [ "$halo_has_aarch64_shader" = false ]; then
+            halo_extra_args+=(-use20)
+          fi
+          ;;
+      esac
+    ''}
 
     if [ -n "$halo_vidmode_width" ] && [ -n "$halo_vidmode_height" ]; then
       ${lib.optionalString (gamescopeExecutable != null) ''
@@ -261,11 +299,11 @@ overlayfsLib.composeWindowsLayers {
         if [ -n "$halo_vidmode_refresh" ]; then
           halo_gamescope_args+=(-r "$halo_vidmode_refresh")
         fi
-        exec ${gamescopeExecutable} "''${halo_gamescope_args[@]}" -- ${entrypoint} -novideo "$@"
+        exec ${gamescopeExecutable} "''${halo_gamescope_args[@]}" -- ${entrypoint} -novideo "''${halo_extra_args[@]}" "$@"
       ''}
       echo "warning: gamescope is unavailable; running Halo without a nested -vidmode display" >&2
     fi
 
-    exec ${entrypoint} -novideo "$@"
+    exec ${entrypoint} -novideo "''${halo_extra_args[@]}" "$@"
   '';
 }
