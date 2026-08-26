@@ -105,6 +105,13 @@ The headless QEMU regression test is exposed as:
 nix build .#checks.x86_64-linux.haloce-headless
 ```
 
+The package-build regression test forces Halo's installer through the portable
+materialized-prefix path used when build namespaces are unavailable:
+
+```sh
+nix build .#checks.x86_64-linux.haloce-direct-build
+```
+
 The non-NixOS compatibility check boots a pinned Ubuntu 24.04 cloud image with
 outbound networking disabled, installs a pinned Nix in the guest, and runs this
 flake's real Halo package under Xvfb:

@@ -75,6 +75,12 @@
     checks = forAllSystems (
       system:
         lib.optionalAttrs (system == x86System) {
+          haloce-direct-build =
+            (pkgsFor.${system}.callPackage ./packages/halo-custom-edition/install-layer.nix {
+              overlayfsLib = packageSets.${system}.lib;
+              modules = packageSets.${system}.moduleScopes.nativeModules;
+              buildNamespaceMode = "direct";
+            }).basePackage;
           haloce-headless = self.packages.${system}.haloce-headless-test;
           haloce-ubuntu-24-04-headless = self.packages.${system}.haloce-ubuntu-24-04-headless-test;
         }

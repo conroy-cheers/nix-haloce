@@ -6,6 +6,7 @@
 
   overlayfsLib,
   modules,
+  buildNamespaceMode ? "auto",
 }:
 let
   haloVersion = "1.0.10";
@@ -141,7 +142,7 @@ let
     ];
 in
 overlayfsLib.mkWindowsPackage {
-  inherit runtime;
+  inherit runtime buildNamespaceMode;
   pname = "halo-custom-edition";
   version = haloVersion;
   src = installerSrc;
