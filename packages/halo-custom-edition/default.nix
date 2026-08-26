@@ -63,6 +63,9 @@ EOF
         if ! grep -q '^"VideoMemorySize"=' "$tempdir/overlay/user.reg"; then
           sed -i '/^\[Software\\\\Wine\\\\Direct3D\]/a "VideoMemorySize"="2048"' "$tempdir/overlay/user.reg"
         fi
+        nix_overlayfs_upsert_user_reg_section 'Software\\Wine\\Drivers' <<'EOF'
+"Audio"="pulse"
+EOF
       fi
       if [ -f "$tempdir/overlay/system.reg" ]; then
         sed -i "s#C:\\\\\\\\users\\\\\\\\nixbld#C:\\\\\\\\users\\\\\\\\$USER#g" "$tempdir/overlay/system.reg"
@@ -212,6 +215,9 @@ overlayfsLib.composeWindowsLayers {
   executableName = "haloce";
   executablePath = "${haloInstallDir}/haloce.exe";
   workingDirectory = haloInstallDir;
+  # PulseAudio authenticates over a host Unix socket. The direct rootless FUSE
+  # mode preserves the caller's credentials when Wine connects to that socket.
+  namespaceMode = "direct";
   runtimeEnvVars = runtimeLocaleEnv;
   extraPreLaunchCommands =
     runtimeBootstrapCommands

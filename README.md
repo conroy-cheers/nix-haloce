@@ -23,6 +23,11 @@ Build nixGL from the same nixpkgs revision as this flake to keep its graphics
 userspace and glibc compatible. The package's default graphics mode preserves
 the environment supplied by nixGL.
 
+Halo explicitly uses Wine's Pulse audio backend. It works with either a native
+PulseAudio server or PipeWire's PulseAudio-compatible server exposed through
+the user's runtime directory. Its rootless FUSE overlay runs in direct mode so
+the audio server sees the caller's normal credentials.
+
 For local testing against the ARM64EC/FEX checkout:
 
 ```sh

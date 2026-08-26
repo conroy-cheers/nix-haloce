@@ -177,8 +177,12 @@ let
       false
     fi
 
-    grep -F 'warning: nix-overlayfs: user/mount namespaces are unavailable; using direct FUSE mode' /tmp/haloce.log
+    ! grep -F 'using direct FUSE mode' /tmp/haloce.log
     ! grep -F 'unknown argument ignored' /tmp/haloce.log
+    halo_user_registry=/home/ubuntu/.local/share/halo-custom-edition/user.reg
+    grep -F '[Software\\Wine\\Drivers]' "$halo_user_registry"
+    test "$(grep -Fc '"Audio"="pulse"' "$halo_user_registry")" -eq 1
+    ! grep -F '"Audio"="alsa"' "$halo_user_registry"
     test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
     echo "$halo_window"
     echo "HALOCE_UBUNTU_TEST_SUCCESS"
@@ -221,6 +225,7 @@ let
         xorriso -as mkisofs -quiet -volid cidata -joliet -rock -o "$out" seed
       '';
 in
+assert haloPackage.namespaceMode == "direct";
 pkgs.runCommand "nix-haloce-ubuntu-24.04-headless"
   {
     nativeBuildInputs = [ pkgs.qemu ];
