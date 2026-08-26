@@ -6,7 +6,7 @@
       url = "github:nixos/nixpkgs?ref=nixos-unstable";
     };
     nix-overlayfs = {
-      url = "github:conroy-cheers/nix-overlayfs/feature/crossplatform-support";
+      url = "github:conroy-cheers/nix-overlayfs";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -63,6 +63,10 @@
             pkgs = pkgsFor.${system};
             inherit self;
           };
+          haloce-ubuntu-24-04-headless-test = import ./tests/ubuntu-24.04-headless.nix {
+            pkgs = pkgsFor.${system};
+            haloPackage = self.packages.${system}.halo-custom-edition;
+          };
         }
     );
 
@@ -72,6 +76,7 @@
       system:
         lib.optionalAttrs (system == x86System) {
           haloce-headless = self.packages.${system}.haloce-headless-test;
+          haloce-ubuntu-24-04-headless = self.packages.${system}.haloce-ubuntu-24-04-headless-test;
         }
     );
 

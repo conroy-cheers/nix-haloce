@@ -148,16 +148,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1782394853,
-        "narHash": "sha256-lqvK+k/IifW8IoHoJTNfq5RYV8l95P76CCIF4c0Lcxg=",
+        "lastModified": 1787730758,
+        "narHash": "sha256-/Fw4OqnqQpuvRi0UFhbFKSNacsYChh1m45i/lpGFuTY=",
         "owner": "conroy-cheers",
         "repo": "nix-overlayfs",
-        "rev": "66a2b945b4d8511f48359c4237933fe130c66d7d",
+        "rev": "72e0cb12caf3e97fe6253867e347030779d0ecd1",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
-        "ref": "feature/crossplatform-support",
         "repo": "nix-overlayfs",
         "type": "github"
       }

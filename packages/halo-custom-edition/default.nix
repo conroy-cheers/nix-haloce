@@ -161,7 +161,7 @@ EOF
     halo_rewrite_runtime_registry
 
     if [ ! -f "$appdir/.halo-runtime-ready" ]; then
-      ${runtime.toolsPackage}/bin/wineboot -u
+      WINEDLLOVERRIDES="mscoree,mshtml=" ${runtime.toolsPackage}/bin/wineboot -u
       ${runtime.toolsPackage}/bin/wineserver --wait
       halo_rewrite_runtime_registry
       touch "$appdir/.halo-runtime-ready"

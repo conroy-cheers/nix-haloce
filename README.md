@@ -8,6 +8,21 @@ Fully reproducible Halo Custom Edition, thanks to [nix-overlayfs](https://github
 nix run github:conroy-cheers/nix-haloce
 ```
 
+On Ubuntu and other non-NixOS hosts, run Halo through nixGL wrappers selected
+for the host GPU. DXVK needs the Vulkan wrapper as well as the OpenGL wrapper:
+
+```sh
+# Mesa (Intel, AMD, or Nouveau)
+nixVulkanIntel nixGLIntel nix run github:conroy-cheers/nix-haloce
+
+# Proprietary NVIDIA
+nixVulkanNvidia nixGLNvidia nix run github:conroy-cheers/nix-haloce
+```
+
+Build nixGL from the same nixpkgs revision as this flake to keep its graphics
+userspace and glibc compatible. The package's default graphics mode preserves
+the environment supplied by nixGL.
+
 For local testing against the ARM64EC/FEX checkout:
 
 ```sh
@@ -89,3 +104,16 @@ The headless QEMU regression test is exposed as:
 ```sh
 nix build .#checks.x86_64-linux.haloce-headless
 ```
+
+The non-NixOS compatibility check boots a pinned Ubuntu 24.04 cloud image with
+outbound networking disabled, installs a pinned Nix in the guest, and runs this
+flake's real Halo package under Xvfb:
+
+```sh
+nix build .#checks.x86_64-linux.haloce-ubuntu-24-04-headless
+```
+
+This check requires a builder with the Nix `kvm` system feature.
+It keeps Ubuntu's AppArmor user-namespace restriction enabled, proves the
+namespace-required launch is rejected, then verifies that the package's default
+auto mode falls back to direct rootless FUSE and creates the Halo window.
